@@ -1,0 +1,29 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+UL35=$(printf "%37s" ' ')
+
+if [ -z ${QUIET} ]; then
+      titleheader 'kankubunt view IniFiles' ${indigo};
+else
+       logStamp
+       printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "kankubunt IniFiles" "${UL35}"
+fi
+
+# headline
+printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-35s${reset}\n" "#" "kankubunt Domain"  "kankubunt IniFile"
+
+# store domains from all inifiles to arrays
+ii=1
+for INITFILE in configs/KankuFile_*.ini; do
+      DOMAIN=$(cat $INITFILE | fgrep VM_DOMAINNAME | sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
+      logStamp
+      printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%s${reset}\n" "$ii" "$DOMAIN"  "$INITFILE"
+      DOMAINS+=${DOMAIN}" "
+      logStamp
+      (( ii+=1 ))
+done
+
+printf "${grey}${LOGSTAMP}${reset}\n"

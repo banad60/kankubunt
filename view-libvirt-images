@@ -1,0 +1,116 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+IMAGENAME='u1804us'
+LIBVIRTIMGAGEPATH='/var/lib/libvirt/images'
+RESTSPACE=$(df -h ${LIBVIRTIMGAGEPATH} | tr -d '\t' | tr -s ' ' | cut -d ' ' -f4 | tr -d '\n')
+
+# handle titleheader, if standalone or in kankubunt-status
+UL35=$(printf "%37s" ' ')
+if [ -z ${QUIET} ]; then
+      titleheader 'kankubunt view libvirt VM-Images' ${indigo};
+else
+      logStamp
+      printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "libvirt VM-Images" "${UL35}"
+fi
+
+# store domains and imagenames from all inifiles to arrays
+ii=1
+for INITFILE in configs/KankuFile_*.ini; do
+      logStamp
+      DOMAIN=$(cat $INITFILE | fgrep VM_DOMAINNAME | sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
+      IMAGENAME=$(cat $INITFILE | fgrep VM_IMAGENAME | sed 's/VM_IMAGENAME=//g'|cut -d "'" -f2)
+      DOMAINS+=${DOMAIN}" "
+      IMAGENAMES+=${IMAGENAME}".qcow2 "
+      (( ii+=1 ))
+done
+iniDOMAINS=$(mktemp /tmp/iniDOMAINS.XXX)
+iniIMAGENAMES=$(mktemp /tmp/iniIMAGENAMES.XXX)
+echo "${DOMAINS}" | sed 's/^[ \t]*//' | tr -d '\t' | tr -s ' '  | tr "[:space:]" "\n" | sed '/./!d'  > $iniDOMAINS
+echo "${IMAGENAMES}" | sed 's/^[ \t]*//' | tr -d '\t' | tr -s ' ' | tr "[:space:]" "\n" | sed '/./!d' > $iniIMAGENAMES
+
+# headline
+printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-62s %-10s %-14s %-20s${reset}\n" "#" "kankubunt VM Domainname" "VM Image" "Size" "Owner" "Date"
+
+
+# get the shit in
+tmpLS=$(mktemp /tmp/tmpLS.XXX)
+tmpLS_0=$(mktemp /tmp/tmpLS_.XXX)
+
+sudo ls -ls ${LIBVIRTIMGAGEPATH} > $tmpLS_0
+cat $tmpLS_0 | sed 's/^[ \t]*//' | tr -d '\t' | tr -s ' ' | sed 1d > $tmpLS
+
+IFS=$'\n' read -d '' -r -a imagefiles < ${tmpLS}
+for (( j=0; $j < ${#imagefiles[@]}; j+=1 )); do
+      END=
+      logStamp
+      OWNER=$(echo "${imagefiles[$j]}" | tr -d '\t' | tr -s ' ' | cut -d ' ' -f4-5 | sed 's/^[ \t]*//')
+      DATE=$(echo "${imagefiles[$j]}" | tr -d '\t' | tr -s ' ' | cut -d ' ' -f7-9 | sed 's/^[ \t]*//')
+      imagefile=$(echo "${imagefiles[$j]}" | tr -d '\t' | tr -s ' ' | cut -d ' ' -f10 | sed 's/^[ \t]*//')
+
+      #count size
+      LSLS=$(echo "${imagefiles[$j]}" | sed 's/^[ \t]*//' | tr -d '\t')
+      SIZE=$(echo $LSLS | tr -d '\t' | tr -s ' ' | cut -d ' ' -f6)
+      (( SIZE_MB = SIZE /1024/1024 ))
+
+      # switch for kanku-imagefile
+      echo "${imagefile}" | fgrep '_' > /dev/null
+      if [[ $? -eq 0 ]]; then
+            imagefile_project=$(echo "${imagefile}" | cut -d '_' -f1 | sed 's/^kanku-//1')
+      else
+            imagefile_project=$(echo "${imagefile}" | sed 's/^kanku-//1' | sed 's/.qcow2//g')
+      fi
+
+      IFS=$'\n' read -d '' -r -a domainsINI < ${iniDOMAINS}
+      #IFS=$'\n' read -d '' -r -a imagefilesINI < ${iniIMAGENAMES}
+      for (( jj=0; $jj < ${#domainsINI[@]}; jj+=1 )); do
+             (( j1 = $j +1 ))
+
+             domainINI=$(echo "${domainsINI[$jj]}" | cut -d ' ' -f1 | tr -d '\n' | sed 's/^[ \t]*//' | tr -s ' ')
+             #imagefileINI=$(echo "${imagefilesINI[$jj]}" | cut -d ' ' -f1 | tr -d '\n' | sed 's/^[ \t]*//' | tr -s ' ')
+             if [ "${domainINI}" == ${imagefile_project} ];then
+                    logStamp
+                    printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$j1" "$domainINI" "${LIBVIRTIMGAGEPATH}/${imagefile}" "$SIZE_MB" "$OWNER" "$DATE"
+                    END=true
+                    break
+             fi
+             domainINI=
+      done
+
+      # count j+1 for #
+      (( j1 = $j +1 ))
+
+      #
+      if [ -z $END ];then
+            # switch output for kankubunt images
+            echo ${FILE} | fgrep 'kanku-' >/dev/null
+            RET=$?
+            if [[ $RET -eq 0 ]]; then
+                  printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${yellow}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$j1" "$domainINI" "${LIBVIRTIMGAGEPATH}/${imagefile}" "$SIZE_MB" "$OWNER" "$DATE"
+            else
+                  printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$j1" "$domainINI" "${LIBVIRTIMGAGEPATH}/${imagefile}" "$SIZE_MB" "$OWNER" "$DATE"
+            fi
+      fi
+done
+
+# count sizees sum
+SUM=$( cat $tmpLS_0 | head -n 1 | cut -d ' ' -f2 )
+(( SUM_MB = SUM /1024 ))
+(( SUM_GB = SUM_MB /1024 ))
+
+# remove temps
+rm $tmpLS $tmpLS_0
+
+# sum line
+thisMSG="view-libvirt-images"
+thisCMD=$(echo "${LIBVIRTIMGAGEPATH}   ∑")
+logStamp
+printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%60s ${dimwhite}%'12.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "${SUM_MB}" "${BRK1_R}${SUM_GB}G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
+printf "${grey}${LOGSTAMP}${reset}\n"
+
+exit 0
+
+#FIN
+

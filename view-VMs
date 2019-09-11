@@ -1,0 +1,93 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+UL35=$(printf "%37s" ' ')
+
+if [ -z ${QUIET} ]; then
+      titleheader 'kankubunt view VMs' ${indigo};
+else
+       logStamp
+       printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "libvirt VMs" "${UL35}"
+fi
+
+# store domains from all inifiles to arrays
+ii=1
+for INITFILE in configs/KankuFile_*.ini; do
+      DOMAIN=$(cat $INITFILE | fgrep VM_DOMAINNAME | sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
+      DOMAINS+=${DOMAIN}" "
+      logStamp
+      (( ii+=1 ))
+done
+
+iniDOMAINS=$(mktemp /tmp/iniDOMAINS.XXX)
+echo "${DOMAINS}" | tr "[:space:]" "\n" | sed '/./!d' > $iniDOMAINS
+
+virshMSG=$(mktemp /tmp/virshMSG.XXX)
+virshMSG2=$(mktemp /tmp/virshMSG2.XXX)
+
+sudo virsh list --all > $virshMSG
+
+cat ${virshMSG} | sed 2d | sed 's/^[ \t]*//' | tr -s ' ' > ${virshMSG2}
+
+IFS=$'\n' read -d '' -r -a lines < ${virshMSG2}
+#echo "${#lines[@]}" && echo "${lines[@]}"
+for (( i=0; $i < ${#lines[@]}; i+=1 )); do
+     COL1=$(echo -n "${lines[$i]}" | cut -d ' ' -f1 | tr -d '\n')
+     COL2=$(echo -n "${lines[$i]}" | cut -d ' ' -f2 | tr -d '\n')
+     COL3=$(echo -n "${lines[$i]}" | cut -d ' ' -f3-5 | tr -d '\r')
+
+     if [[ $i -eq 0 ]]; then
+           #printf "${grey}${LOGSTAMP}${black}${bg_grey} %-5s %-30s %-12s${reset}\n" "$COL1" "$COL2" "$COL3"
+           printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-5s %-30s %-12s %-22s${reset}\n" "Id" "VM Domain" "Status" "kankubunt"
+     else
+            echo $COL2 | fgrep 'kanku-' >/dev/null
+           RET=$?
+           if [[ $RET -eq 0 ]]; then
+
+                 echo $COL1 | fgrep '-' >/dev/null
+                 RET=$?
+                 if [[ $RET -eq 0 ]]; then
+                      printf "${brown}${LOGSTAMP} ${dimred}%-5s %-30s %-12s Project${reset}\n" "$COL1" "$COL2" "$COL3"
+                 else
+                      printf "${dimgreen}${LOGSTAMP} ${green}%-5s %-30s %-12s Project${reset}\n" "$COL1" "$COL2" "$COL3"
+                 fi
+
+            else
+
+                 IFS=$'\n' read -d '' -r -a domains < ${iniDOMAINS}
+                 for (( j=0; $j < ${#domains[@]}; j+=1 )); do
+                        domain=$(echo -n "${domains[$j]}" | cut -d ' ' -f1 | tr -d '\n')
+                        if [ "$COL2" == "$domain" ];then
+                                isRELEASE=true
+                                break
+                        else
+                                isRELEASE=
+                        fi
+                 done
+
+                 echo $COL1 | fgrep '-' >/dev/null
+                 RET=$?
+                 if [[ $RET -eq 0 ]]; then
+                     if [ ! -z $isRELEASE ]; then
+                         printf "${brown}${LOGSTAMP} ${darkred}%-5s %-30s %-12s RELEASE${reset}\n" "$COL1" "$COL2" "$COL3"
+                     else
+                         printf "${grey}${LOGSTAMP} %-5s %-30s %-12s${reset}\n" "$COL1" "$COL2" "$COL3"
+                     fi
+                 else
+                     if [ ! -z $isRELEASE ]; then
+                         printf "${dimgreen}${LOGSTAMP} ${seegreen}%-5s %-30s %-12s RELEASE${reset}\n" "$COL1" "$COL2" "$COL3"
+                     else
+                         printf "${grey}${LOGSTAMP} ${dimcyan}%-5s %-30s %-12s${reset}\n" "$COL1" "$COL2" "$COL3"
+                     fi
+                 fi
+           fi
+     fi
+     logStamp
+done
+
+rm $virshMSG $virshMSG2 $iniDOMAINS
+
+exit 0
+

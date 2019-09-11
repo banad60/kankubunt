@@ -1,0 +1,48 @@
+# this is a generated KankuFile by kankubunt
+#  - cause it's with kanku ... und bunt too
+# date: ${TIMESTAMP} app: reconf-kanku-vm
+# changes will be overwritten by the next run!!
+Kanku::Util::IPTables:
+  start_port: 49001
+ipaddress:
+domain_name: ${kanku_domain_name}
+default_job: ${kanku_default_job}
+login_user: ${kanku_login_user}
+login_pass: ${kanku_login_pass}
+
+qemu:
+  user: ${kanku_user}
+
+jobs:
+ kanku-job:
+  -
+    use_module: Kanku::Handler::SetJobContext
+    options:
+      host_interface: ${kanku_host_interface}
+      use_cache: ${kanku_use_cache}
+      vm_template_file: ${kanku_vm_template_file}
+  -
+    use_module: Kanku::Handler::CreateDomain
+    options:
+      memory: ${kanku_memory}
+      vcpu: ${kanku_vcpu}
+      use_9p: ${kanku_use_9p}
+      noauto_9p: ${kanku_noauto_9p}
+      use_cache: ${kanku_use_cache}
+      vm_image_file: ${kanku_vm_image_file}
+      cache_dir: ${kanku_cache_dir}
+      ${NETWORKBRIDGE}
+      management_interface: ${kanku_management_interface}
+      ${NETWORKNAME}
+  ${IPADDRESS_STATIC}
+  -
+    use_module: Kanku::Handler::PrepareSSH
+  -
+    use_module: Kanku::Handler::ExecuteCommandViaSSH
+    options:
+      commands:
+        - systemctl enable mount-kanku-tmp.service && systemctl start mount-kanku-tmp.service
+        - systemctl status mount-kanku-tmp.service
+        - echo "my test here ...."
+        - echo ".... or my config there"
+

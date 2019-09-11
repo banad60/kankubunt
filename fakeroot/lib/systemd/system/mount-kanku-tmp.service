@@ -1,0 +1,18 @@
+[Unit]
+Description=mount-kanku-tmp.service - a ro share mountet to /tmp/kanku
+# Basically mount units implicitly occur between local-fs-pre.targe
+# and local-fs.targe, before basic.target, the problem is services
+# get implicit Requires=basic.target and After=basic.target.
+# the solution was to disable default dependencies:
+DefaultDependencies=no
+After=network-online.target
+
+[Service]
+Type=forking
+RemainAfterExit=true
+ExecStartPre=/bin/mkdir -p /tmp/kanku
+ExecStart=/bin/mount --no-mtab --read-only kankushare
+ExecStop=/bin/umount kankushare
+
+[Install]
+RequiredBy=multi-user.target

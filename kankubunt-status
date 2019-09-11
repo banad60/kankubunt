@@ -1,0 +1,22 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+titleheader 'kankubunt status' ${indigo};
+
+export QUIET=true
+
+./view-active-conf
+
+./view-inifiles
+
+./view-libvirt-images
+
+./view-VMs
+
+./view-kankubunt-sources
+
+export QUIET=
+
+exit 0

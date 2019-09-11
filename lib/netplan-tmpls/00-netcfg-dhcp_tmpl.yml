@@ -1,0 +1,15 @@
+# this is a generated netplan.io file by kankubunt
+#   - cause it's with kanku ... und bunt too
+# date: ${TIMESTAMP} app: reconf-kanku-vm
+# changes will be overwritten by the next run!!
+# Template dhcp configuration
+
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${netplan_ethernets}:
+      dhcp4: yes
+      dhcp6: ${netplan_dhcp6}
+
+

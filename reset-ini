@@ -1,0 +1,7 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+. lib/reset-ini.sh
+
+exit 0
+

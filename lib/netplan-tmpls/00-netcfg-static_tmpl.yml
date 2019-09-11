@@ -1,0 +1,21 @@
+# this is a generated netplan.io file by kankubunt
+#   - cause it's with kanku ... und bunt too
+# date: ${TIMESTAMP} app: reconf-kanku-vm
+# changes will be overwritten by the next run!!
+# Template static IP configuration
+
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${netplan_ethernets}:
+      addresses:
+        - ${netplan_addresses}
+      dhcp4: false
+      gateway4: ${netplan_gateway4}
+      dhcp6: false
+      ${ROUTES}
+      nameservers:
+          search: [${netplan_nameservers_search}]
+          addresses: [${netplan_nameservers_addresses}]
+

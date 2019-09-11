@@ -1,0 +1,198 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+# first get the lbrary, if non present
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+# second  get the debuglbrary
+. lib/script/view-helpers.sh
+DEBUG=
+
+IMAGENAME='u1804us'
+
+IMGAGEPATH=${HOME}/.cache/kanku
+RESTSPACE=$(df -h ${IMGAGEPATH} | tr -d '\t' | tr -s ' ' | cut -d ' ' -f4 | tr -d '\n')
+
+# handle usage  standaone or kankubunt-status
+UL35=$(printf "%37s" ' ')
+if [ -z ${QUIET} ]; then
+       titleheader "kankubunt Sources ${IMGAGEPATH}" ${indigo};
+else
+       logStamp
+       printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "kankubunt Source Images" ${IMGAGEPATH}
+fi
+QUIET=
+HL=
+
+#if $IMGAGEPATH is not Empty"
+if [ "$(ls -A $IMGAGEPATH)" ]; then
+
+      # store domains and imagenames from all inifiles to arrays
+      ii=1
+      for INITFILE in configs/KankuFile_*.ini; do
+            logStamp
+            DOMAIN=$(cat $INITFILE | fgrep VM_DOMAINNAME | sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
+            IMAGENAME=$(cat $INITFILE | fgrep VM_IMAGENAME | sed 's/VM_IMAGENAME=//g'|cut -d "'" -f2)
+            DOMAINS+=${DOMAIN}" "
+            IMAGENAMES+=${IMAGENAME}".qcow2 "
+            (( ii+=1 ))
+      done
+      iniDOMAINS=$(mktemp /tmp/iniDOMAINS.XXX)
+      iniIMAGENAMES=$(mktemp /tmp/iniIMAGENAMES.XXX)
+      echo "${DOMAINS}" | sed 's/^[ \t]*//' | tr -d '\t' | tr -s ' '  | tr "[:space:]" "\n" | sed '/./!d'  > $iniDOMAINS
+      echo "${IMAGENAMES}" | sed 's/^[ \t]*//' | tr -d '\t' | tr -s ' ' | tr "[:space:]" "\n" | sed '/./!d' > $iniIMAGENAMES
+
+      DOM_ARR=(`cat "${iniDOMAINS}"`)
+      IMG_ARR=(`cat "${iniIMAGENAMES}"`)
+
+
+      # headline
+      printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-62s %-10s %-14s %-20s${reset}\n" "#" "kankubunt Domain" "Source Image" "Size" "Owner" "Date"
+
+      # compare cache directory with the inifiles and print out, if match
+      ii=1
+      for SOURCEIMAGE in $HOME/.cache/kanku/*; do
+
+            SOURCEIMAGEFILENAME=`basename "$SOURCEIMAGE"`
+            dbgCMD="SOURCEIMAGEFILENAME" && dbgMSG="$SOURCEIMAGEFILENAME" && prnDEBUG_in
+
+            # get ls to var
+            LSLS=$(ls -ls $HOME/.cache/kanku/$SOURCEIMAGEFILENAME | sed 's/^[ \t]*//' | tr -d '\t')
+            OWNER=$(echo $LSLS | tr -d '\t' | tr -s ' ' | cut -d ' ' -f4-5 | sed 's/^[ \t]*//')
+            DATE=$(echo  $LSLS | tr -d '\t' | tr -s ' ' | cut -d ' ' -f7-9 | sed 's/^[ \t]*//')
+            FILE=$(echo $LSLS | tr -d '\t' | tr -s ' '  | cut -d ' ' -f10)
+            FILENAME=`basename "$FILE"`
+            SIZE=$(echo $LSLS | tr -d '\t' | tr -s ' ' | cut -d ' ' -f6)
+            (( SIZE_MB = SIZE /1024/1024 ))
+
+#echo $SOURCEIMAGEFILENAME
+            # compare IMAGENAME with SOURCEIMAGEFILENAME
+            compareArray ${iniIMAGENAMES} $SOURCEIMAGEFILENAME
+            hisKEY=$?
+            if [[ $hisKEY -ne 255 ]]; then   # 255='not found'
+               dbgCMD="0" && dbgMSG="[[ \$hisKEY -ne 255 ]] $SOURCEIMAGEFILENAME" && prnDEBUG_green # 4debug
+
+#echo "hisKEY=$hisKEY : ${IMG_ARR[$hisKEY]} : ${DOM_ARR[$hisKEY]}"
+               if [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ]; then  # "BINGO"
+                     dbgCMD="0-A" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+
+                     # if it is the source
+                     QUIET=
+                     HL=
+                     if [ "$SOURCEIMAGEFILENAME" == 'u1804us.qcow2' ]; then
+                           dbgCMD="0-A-1 =u1804us.qcow2" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+
+                           QUIET=true
+                           dbgCMD="0" && dbgMSG="SOURCEIMAGEFILENAME == u1804us.qcow2" && prnDEBUG_green
+                           logStamp
+                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${cyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "kankubunt MAINSOURCE" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+
+                           IFS=$'\n' read -d '' -r -a domains < ${iniDOMAINS}
+                           IFS=$'\n' read -d '' -r -a imagefiles < ${iniIMAGENAMES}
+                           for (( j=0; $j < ${#imagefiles[@]}; j+=1 )); do
+                                 logStamp
+                                  domain=$(echo "${domains[$j]}" | cut -d ' ' -f1 | tr -d '\n' | sed 's/^[ \t]*//' | tr -s ' ')
+                                  imagefile=$(echo "${imagefiles[$j]}" | cut -d ' ' -f1 | tr -d '\n' | sed 's/^[ \t]*//' | tr -s ' ')
+
+                                  if [ "$SOURCEIMAGEFILENAME" == "$imagefile" ];then
+                                         printf "${grey}${LOGSTAMP} ${dimcyan}%35s${cyan}-> ${dimcyan}%s : %s ${reset}\n" " " "used by" "$domain"
+                                  fi
+                           done
+
+                     elif [ "$SOURCEIMAGEFILENAME" == 'u1804us_src.qcow2' ]; then  # "BINGO"
+                              dbgCMD="0-A-2 =u1804us_src.qcow2" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+                              forMSG="ubuntu online-install IMAGE"
+                              HL=true
+
+                     elif [ "$(echo $SOURCEIMAGEFILENAME | cut -d '_' -f2 )" == "${DOM_ARR[$hisKEY]}"  ]; then  # "BINGO"
+                              dbgCMD="0-A-3 u1804us_DOMAIN_rREV.qcow2" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+                              REV=$(echo $SOURCEIMAGEFILENAME | cut -d '_' -f3 | cut -d '.' -f1 | sed 's/_r//g' | sed 's/r//g')
+                              forMSG="kankubunt REVISION r"$REV
+                              HL=true
+
+                     else
+                              dbgCMD="0-A-4 unknown FILE" && prnDEBUG1_red && prnDEBUG2_red # 4debug
+                              forMSG='unknown FILE'
+                     fi
+
+#		                printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${cyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$FILE" "$SIZE_MB" "$OWNER" "$DATE"
+
+                      if [ -z $QUIET ]; then
+                           dbgCMD="0-B-1 output printf" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+                           if [ ! -z $HL ]; then ILLU1=${cyan}; ILLU2=${dimwhite};  else  ILLU1=${dimcyan}; ILLU1=${dimblue}; fi
+                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+                     fi
+
+               fi #Eif [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ]
+
+            else
+                  dbgCMD="1" && dbgMSG="[[ \$hisKEY -ne 255 ]]" && prnDEBUG_red # 4debug
+
+   #				   echo 'not found
+                  HL=
+                  REV=$(echo $SOURCEIMAGEFILENAME | cut -d '_' -f3 | cut -d '.' -f1 | sed 's/_r//g' | sed 's/r//g')
+                  re='^[0-9]+$'
+                  if [[ $REV =~ $re ]] ; then
+                        dbgCMD="1-A" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+                        if [[ "$REV" -gt 0 ]]; then  # "BINGO"
+                              dbgCMD="1-A-1" && prnDEBUG1_green && prnDEBUG2_green # 4debug
+                              forMSG="kankubunt REVISION r"$REV
+                              HL=true
+                        else
+                              dbgCMD="1-A-2" && prnDEBUG1_red && prnDEBUG2_red # 4debug
+                              forMSG='no kankubunt image'
+                        fi
+                  else
+                        dbgCMD="1-B" && prnDEBUG1_red && prnDEBUG2_red # 4debug
+                        forMSG='no kankubunt image'
+                  fi
+                  if [ ! -z $HL ]; then ILLU1=${dimcyan}; ILLU2=${grey};  else  ILLU1=${dimcyan}; ILLU1=${dimblue}; fi
+                  printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+
+            fi #Eif [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ];
+
+            (( ii+=1 ))
+      done
+
+      #remove temps
+      rm $iniDOMAINS $iniIMAGENAMES
+
+      # count resoces SUM
+      tmpsizes=$(mktemp /tmp/tmpsizes.XXX)
+      ls -la ${IMGAGEPATH}/* | tr -d '\t' | tr -s ' ' | cut -d ' ' -f5 > $tmpsizes
+      SIZES=(`cat $tmpsizes`)
+      SIZES_KEYS=(${!SIZES[@]});
+      for (( i=0; $i < ${#SIZES[@]}; i+=1 )); do
+            KEY=${SIZES_KEYS[$i]};
+            NUM=$KEY
+            (( NUM+=1 )); # linecount
+            (( SUM_count += $(echo ${SIZES[$KEY]}) ))
+      done;
+      rm $tmpsizes
+
+      (( SUM = SUM_count /1024 ))
+      (( SUM_MB = SUM /1024 ))
+      (( SUM_GB = SUM_MB /1024 ))
+
+
+      # output last line
+      thisMSG="view-kankubunt-sources"
+      thisCMD=$(echo "$IMGAGEPATH   ∑")
+      logStamp
+      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%60s ${dimwhite}%'12.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "${SUM_MB}" "${BRK1_R}${SUM_GB}G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
+      printf "${grey}${LOGSTAMP}${reset}\n"
+
+else
+
+      thisMSG="view-kankubunt-sources"
+      thisCMD=$(echo "$IMGAGEPATH is empty")
+      logStamp
+      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%58s ${dimwhite}%'12.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "0" "${BRK1_R}0G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
+      printf "${grey}${LOGSTAMP} ${orange}%34s ${dimwhite}: %-58s %s\n" "NO kankubunt source image - DO:" "./install-local-kanku-source (option)"
+
+     exit 1
+fi #Eif [ "$(ls -A $IMGAGEPATH)" ]
+
+exit 0
+
+#FIN

@@ -1,0 +1,6 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+. lib/script/mkPathExecutable.sh
+
+exit 0

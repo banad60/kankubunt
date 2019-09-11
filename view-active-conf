@@ -1,0 +1,101 @@
+#!/bin/bash
+# kankubunt - cause it's with kanku ... und bunt too
+
+if [ -z ${TIMESTAMP} ]; then . lib/helper.sh; fi
+
+if [ -z ${QUIET} ]; then
+      titleheader 'kankubunt view active config' ${indigo};
+fi
+
+UL35=$(printf "%37s" ' ')
+logStamp
+printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "Activated Configuration" "${UL35}"
+
+# insert inifile
+INIPATH='configs'
+CMD=$(echo "${INIPATH}/") && MSG="INIPATH"
+printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s\n" "$MSG" "$CMD"
+
+
+if [ -L "configs/KankuFile.ini" ]; then
+        INIFILE_fullpath=$(readlink -f configs/KankuFile.ini)
+        INIFILE="${INIFILE_fullpath##*/}";
+else
+        INIFILE='KankuFile_dhcp-default.ini'
+fi
+. configs/${INIFILE}
+CMD=$(echo "configs/${INIFILE}") && MSG="INIFILE"
+printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s\n" "$MSG" "$CMD"
+
+
+# format output of IniFile
+iniTMP=$(mktemp /tmp/iniTMP.XXX)
+cat configs/${INIFILE} | sed '/./!d'  | sed 's/^#.*$//g' > $iniTMP
+IFS=$'\n' read -d '' -r -a lines < ${iniTMP}
+for (( i=0; $i < ${#lines[@]}; i+=1 )); do
+     logStamp
+     COL1=; COL2=; COL3=;
+     COL1="$(echo "${lines[$i]}" | cut -d '=' -f1)"
+     COL2=$(echo "${lines[$i]}" | cut -d '=' -f2 | cut -d '#' -f1 | sed -e "s/'/${green}'${dimwhite}/1;s/'/${green}'${dimwhite}/2" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+     #count tailspaces for COL2
+     COLmono=${#COL2}
+     (( COLmono-=32 ))
+     (( COLtail = 33 - COLmono  ))
+     if [[ $COLmono -gt -1 ]]; then
+          SPACE=$(printf "%${COLtail}s" ' ')
+     else
+          SPACE=
+     fi
+
+     echo "${lines[$i]}" | cut -d '=' -f2 | fgrep '#' >/dev/null
+     RET=$?
+     if [[ ${RET} -eq 1 ]]; then
+           COL3=' ';
+     else
+           COL3=$(echo "${lines[$i]}" | cut -d '=' -f2 | cut -d '#' -f2 |  sed -e 's/[[:space:]]*$//' )
+     fi
+     printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s ${dimyellow}#${grey} %s\n" "$COL1" "$COL2$SPACE" "$COL3"
+done
+rm $iniTMP
+
+
+# read KankuFile
+
+if [ ! -f "KankuFile" ]; then
+      CMD=no
+      MSG="KankuFile"
+      printf "${grey}${LOGSTAMP} ${dimcyan}%-34s${ARROW_R} ${dimred}%s\n" "${MSG}" "${CMD}"
+else
+      logStamp
+      printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "KankuFile" "${UL35}"
+
+      DOMAIN=$(cat KankuFile|fgrep domain_name|sed 's/^[ \t]*//'|cut -d' ' -f2)
+      CMD=$(echo ${DOMAIN}) && MSG="DOMAIN"
+      printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s\n" "$MSG" "$CMD"
+
+      IMAGENAME=$(cat KankuFile|fgrep vm_image_file|sed 's/^[ \t]*//'|cut -d' ' -f2 | cut -d'.' -f1)
+      CMD=$(echo ${IMAGENAME}) && MSG="IMAGENAME"
+      printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s\n" "$MSG" "$CMD"
+
+      IMGAGEPATH=$(cat KankuFile|fgrep cache_dir|sed 's/^[ \t]*//'|cut -d' ' -f2)
+      CMD=$(echo ${IMGAGEPATH}) && MSG="IMGAGEPATH"
+      printf "${grey}${LOGSTAMP} ${dimcyan}%-34s = ${dimwhite}%-35s\n" "$MSG" "$CMD"
+
+      if isVMDOMAINrunning ${DOMAIN} ${LIBVIRTHOST}; then
+
+         logStamp
+         printf "${grey}${LOGSTAMP} ${grey}${smul}%35s %s${rmul}\n" "Network Parameters" "${UL35}"
+
+         export QUIET=true
+         getVMDOMAIN_arr ${DOMAIN} ${LIBVIRTHOST};
+         getVM_IPfromDOMAIN ${DOMAIN} ${LIBVIRTHOST};
+         export QUIET=
+      fi
+
+      printf "${grey}${LOGSTAMP}${reset}\n"
+
+fi #Eif [ ! -f "KankuFile" ]
+
+
+

@@ -1,0 +1,4 @@
+-
+    use_module: Kanku::Handler::SetJobContext
+    options:
+      ipaddress: ${kanku_ip}
