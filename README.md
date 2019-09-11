@@ -71,12 +71,9 @@ accessible.
 
 ./define-local-kanku-source-vm : define a kanku-source-image-vm (for debug only)
 
-
-
 ./isOnline <ip> <port>         : helper (for debug only)
 
 ./mkpath-executable            : helper (for debug only)
-
 
 
 ```
@@ -84,15 +81,14 @@ accessible.
 ### First run
 
 With the run of the kankubunt command `./install-local-kanku-source`, at first
-the ubuntu-source-image will be installed automaticly. This clould take a while,
-depending on your network-bandwith and on your hardware as well. An normal time
-for the installation-prozess of ubunt
+the ubuntu-source-image will be installed automatically. This could take a
+while, depending on your network-bandwith and on your hardware as well. A normal
+time for the installation-process of ubuntu lay between 15 up to 60 minutes.
 
-And for sure on
-ubuntu, because the installation is an online-prozess and sometimes the
-ubuntu-mirror is slow, but with that you must live on. Once ubuntu is installed
-as the kanku-soure, the next prozesses run all localy and fast. There is no need
-to do this again, sinze you want reinstall.
+And for sure it depends on ubuntu, because the installation is an online-process
+and sometimes the ubuntu-mirror is slow, but with that you must live on. Once
+ubuntu is installed as the kanku-soure, the next processes run all locally and
+fast. There is no need to do this again, since you want reinstall.
 
 The base source-image is named `u1804us.qcow2` and is located in your
 `~/.config/kanku` directory.
