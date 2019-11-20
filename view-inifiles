@@ -13,14 +13,19 @@ else
 fi
 
 # headline
-printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-35s${reset}\n" "#" "kankubunt Domain"  "kankubunt IniFile"
+printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-57s %6s %-35s %-4s %-4s${reset}\n" "#" "kankubunt Domain"  "kankubunt IniFile" "VSize" "SRC-Imagename" "REV" "REL"
 
 # store domains from all inifiles to arrays
 ii=1
 for INITFILE in configs/KankuFile_*.ini; do
       DOMAIN=$(cat $INITFILE | fgrep VM_DOMAINNAME | sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
+      IMAGENAME=$(cat $INITFILE | fgrep VM_IMAGENAME | sed 's/VM_IMAGENAME=//g'|cut -d "'" -f2)".qcow2"
+      IMGAGESIZE=$(cat $INITFILE | fgrep VM_IMGAGESIZE | sed 's/VM_IMGAGESIZE=//g'|cut -d " " -f1)"G"
+      IMAGE_REV=$(cat $INITFILE | fgrep VM_IMAGE_REV | sed 's/VM_IMAGE_REV=//g'|cut -d " " -f1)
+      RELEASE=$(cat $INITFILE | fgrep VM_RELEASE | sed 's/VM_RELEASE=//g'|cut -d " " -f1)
+
       logStamp
-      printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%s${reset}\n" "$ii" "$DOMAIN"  "$INITFILE"
+      printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%-57s ${orange}%6s ${grey}%-35s ${orange}%-4s ${blutorange}%-4s${reset}\n" "$ii" "$DOMAIN"  "$INITFILE" "$IMGAGESIZE" "$IMAGENAME" "$IMAGE_REV" "$RELEASE"
       DOMAINS+=${DOMAIN}" "
       logStamp
       (( ii+=1 ))

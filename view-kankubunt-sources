@@ -47,7 +47,7 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
 
 
       # headline
-      printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-62s %-10s %-14s %-20s${reset}\n" "#" "kankubunt Domain" "Source Image" "Size" "Owner" "Date"
+      printf "${grey}${LOGSTAMP} ${black}${bg_grey}%-3s %-30s : %-57s %-7s %-10s %-14s %-16s${reset}\n" "#" "kankubunt Domain" "Source Image" "VSize" "Size" "Owner" "Date"
 
       # compare cache directory with the inifiles and print out, if match
       ii=1
@@ -65,14 +65,19 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
             SIZE=$(echo $LSLS | tr -d '\t' | tr -s ' ' | cut -d ' ' -f6)
             (( SIZE_MB = SIZE /1024/1024 ))
 
-#echo $SOURCEIMAGEFILENAME
+            # get qemu-img info
+            tmp_info=$(mktemp /tmp/tmp.XXX)
+            qemu-img info $FILE > $tmp_info
+            VSIZE=$(cat $tmp_info | fgrep 'virtual size:' | cut -d':' -f2 | sed 's/^[ \t]*//' | cut -d' ' -f1)
+            #DSIZE=$(cat $tmp_info | fgrep 'disk size:' | cut -d':' -f2 | sed 's/^[ \t]*//' | cut -d' ' -f1)
+            rm $tmp_info
+
             # compare IMAGENAME with SOURCEIMAGEFILENAME
             compareArray ${iniIMAGENAMES} $SOURCEIMAGEFILENAME
             hisKEY=$?
             if [[ $hisKEY -ne 255 ]]; then   # 255='not found'
                dbgCMD="0" && dbgMSG="[[ \$hisKEY -ne 255 ]] $SOURCEIMAGEFILENAME" && prnDEBUG_green # 4debug
 
-#echo "hisKEY=$hisKEY : ${IMG_ARR[$hisKEY]} : ${DOM_ARR[$hisKEY]}"
                if [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ]; then  # "BINGO"
                      dbgCMD="0-A" && prnDEBUG1_green && prnDEBUG2_green # 4debug
 
@@ -85,7 +90,7 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
                            QUIET=true
                            dbgCMD="0" && dbgMSG="SOURCEIMAGEFILENAME == u1804us.qcow2" && prnDEBUG_green
                            logStamp
-                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${cyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "kankubunt MAINSOURCE" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${cyan}%-30s : ${dimwhite}%-57s ${orange}%6s %'10.fM ${grey}%-14s %-16s${reset}\n" "$ii" "kankubunt MAINSOURCE" "$SOURCEIMAGEFILENAME" "$VSIZE" "$SIZE_MB" "$OWNER" "$DATE"
 
                            IFS=$'\n' read -d '' -r -a domains < ${iniDOMAINS}
                            IFS=$'\n' read -d '' -r -a imagefiles < ${iniIMAGENAMES}
@@ -115,12 +120,10 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
                               forMSG='unknown FILE'
                      fi
 
-#		                printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${cyan}%-30s : ${dimwhite}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$FILE" "$SIZE_MB" "$OWNER" "$DATE"
-
-                      if [ -z $QUIET ]; then
+                     if [ -z $QUIET ]; then
                            dbgCMD="0-B-1 output printf" && prnDEBUG1_green && prnDEBUG2_green # 4debug
                            if [ ! -z $HL ]; then ILLU1=${cyan}; ILLU2=${dimwhite};  else  ILLU1=${dimcyan}; ILLU1=${dimblue}; fi
-                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+                           printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-57s ${orange}%6s %'10.fM ${grey}%-14s %-16s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$VSIZE" "$SIZE_MB" "$OWNER" "$DATE"
                      fi
 
                fi #Eif [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ]
@@ -128,7 +131,7 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
             else
                   dbgCMD="1" && dbgMSG="[[ \$hisKEY -ne 255 ]]" && prnDEBUG_red # 4debug
 
-   #				   echo 'not found
+   #              echo 'not found
                   HL=
                   REV=$(echo $SOURCEIMAGEFILENAME | cut -d '_' -f3 | cut -d '.' -f1 | sed 's/_r//g' | sed 's/r//g')
                   re='^[0-9]+$'
@@ -147,7 +150,7 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
                         forMSG='no kankubunt image'
                   fi
                   if [ ! -z $HL ]; then ILLU1=${dimcyan}; ILLU2=${grey};  else  ILLU1=${dimcyan}; ILLU1=${dimblue}; fi
-                  printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-60s ${orange}%'10.fM ${grey}%-14s %-20s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$SIZE_MB" "$OWNER" "$DATE"
+                  printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${ILLU1}%-30s : ${ILLU2}%-57s ${orange}%6s %'10.fM ${grey}%-14s %-16s${reset}\n" "$ii" "$forMSG" "$SOURCEIMAGEFILENAME" "$VSIZE" "$SIZE_MB" "$OWNER" "$DATE"
 
             fi #Eif [ "$SOURCEIMAGEFILENAME" == "${IMG_ARR[$hisKEY]}" ];
 
@@ -177,9 +180,9 @@ if [ "$(ls -A $IMGAGEPATH)" ]; then
 
       # output last line
       thisMSG="view-kankubunt-sources"
-      thisCMD=$(echo "$IMGAGEPATH   ∑")
+      thisCMD=$(echo "$IMGAGEPATH     ∑")
       logStamp
-      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%60s ${dimwhite}%'12.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "${SUM_MB}" "${BRK1_R}${SUM_GB}G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
+      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%66s${dimwhite}%'11.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "${SUM_MB}" "${BRK1_R}${SUM_GB}G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
       printf "${grey}${LOGSTAMP}${reset}\n"
 
 else
@@ -187,8 +190,8 @@ else
       thisMSG="view-kankubunt-sources"
       thisCMD=$(echo "$IMGAGEPATH is empty")
       logStamp
-      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%58s ${dimwhite}%'12.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "0" "${BRK1_R}0G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
-      printf "${grey}${LOGSTAMP} ${orange}%34s ${dimwhite}: %-58s %s\n" "NO kankubunt source image - DO:" "./install-local-kanku-source (option)"
+      printf "${grey}${LOGSTAMP} ${dimblue}%-34s ${dimwhite}: ${orange}%66s${dimwhite}%'11.fM %s${reset}\n"  "$thisMSG" "$thisCMD" "0" "${BRK1_R}0G${BRK1_L}${BRK1_R}${RESTSPACE}${BRK1_L}"
+      printf "${grey}${LOGSTAMP} ${orange}%34s ${dimwhite}: %-66s %s\n" "NO kankubunt source image - DO:" "./install-local-kanku-source (option)"
 
      exit 1
 fi #Eif [ "$(ls -A $IMGAGEPATH)" ]
