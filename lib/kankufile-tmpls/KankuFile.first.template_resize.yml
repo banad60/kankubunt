@@ -1,0 +1,84 @@
+# this is a generated KankuFile by kankubunt
+#  - cause it's with kanku ... und bunt too
+# date: ${TIMESTAMP} app: reconf-kanku-vm
+# changes will be overwritten by the next run!!
+Kanku::Util::IPTables:
+  start_port: 49001
+ipaddress:
+domain_name: ${kanku_domain_name}
+default_job: ${kanku_default_job}
+login_user: ${kanku_login_user}
+login_pass: ${kanku_login_pass}
+
+qemu:
+  user: ${kanku_user}
+
+jobs:
+ kanku-job:
+  -
+    use_module: Kanku::Handler::SetJobContext
+    options:
+      host_interface: ${kanku_host_interface}
+      use_cache: ${kanku_use_cache}
+      cache_dir: ${kanku_cache_dir}
+      vm_image_file: ${kanku_vm_image_file}
+      vm_template_file: ${kanku_vm_template_file}
+  -
+    use_module: Kanku::Handler::ResizeImage
+    options:
+      use_cache: ${kanku_use_cache}
+      disk_size: ${kanku_disk_size}
+  -
+    use_module: Kanku::Handler::CreateDomain
+    options:
+      memory: ${kanku_memory}
+      vcpu: ${kanku_vcpu}
+      use_9p: ${kanku_use_9p}
+      noauto_9p: ${kanku_noauto_9p}
+      use_cache: ${kanku_use_cache}
+      ${NETWORKBRIDGE}
+      management_interface: ${kanku_management_interface}
+      ${NETWORKNAME}
+  -
+    use_module: Kanku::Handler::ExecuteCommandViaConsole
+    options:
+      commands:
+        # resize partition
+        - growpart /dev/vda 1
+        - resize2fs /dev/vda1
+        # local basics
+        - hostnamectl set-hostname ${kanku_domain_name}
+        - systemctl set-default multi-user.target
+        - echo 'deb http://archive.ubuntu.com/ubuntu bionic main restricted universe multiverse' > /etc/apt/sources.list
+        - echo 'deb-src http://de.archive.ubuntu.com/ubuntu bionic main restricted universe multiverse' >> /etc/apt/sources.list
+        - echo 'deb http://de.archive.ubuntu.com/ubuntu bionic-updates main restricted universe multiverse' >> /etc/apt/sources.list
+        - echo 'deb-src http://de.archive.ubuntu.com/ubuntu bionic-updates main restricted universe multiverse' >> /etc/apt/sources.list
+        - echo 'deb http://de.archive.ubuntu.com/ubuntu bionic-security main restricted universe multiverse' >> /etc/apt/sources.list
+        - echo 'deb-src http://de.archive.ubuntu.com/ubuntu bionic-security main restricted universe multiverse' >> /etc/apt/sources.list
+        - sudo apt-get -y update && sudo apt-get -y upgrade
+        # locales de
+        - apt-get -y install cifs-utils nfs-common locales
+        - locale-gen de_DE.utf8
+        - locale-gen en_US.UTF-8
+        - update-locale LANG=de_DE.utf8
+        # reconf kankushare / install systemd-service
+        - mount --no-mtab kankushare
+        - cp /tmp/kanku/fakeroot/lib/systemd/system/mount-kanku-tmp.service /lib/systemd/system/mount-kanku-tmp.service
+        - systemctl enable mount-kanku-tmp.service
+        - umount kankushare
+        - systemctl start mount-kanku-tmp.service
+        # dhcp IP reconfig
+        - cp /tmp/kanku/fakeroot/etc/netplan/00-netcfg.yaml /etc/netplan/01-netcfg.yaml
+        - netplan apply
+  ${IPADDRESS_STATIC}
+  -
+    use_module: Kanku::Handler::PrepareSSH
+  -
+    use_module: Kanku::Handler::ExecuteCommandViaSSH
+    options:
+      commands:
+         - apt-get purge -y apport
+         - cp -Rp /tmp/kanku/fakeroot/root/.config /root
+         - cp -Rp /tmp/kanku/fakeroot/home/kanku/.config /home/kanku
+         - cp -Rp /tmp/kanku/fakeroot/etc/skel /etc
+         - wait

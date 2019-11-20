@@ -100,7 +100,7 @@ else
       else
             VM_IMAGE_REV=1
             VM_IMAGE_REV_OLD=0
-            addFIRSTLINE "\nVM_IMAGE_REV="${VM_IMAGE_REV}  ${INIFILE_fullpath}
+            addFIRSTLINE "VM_IMAGE_REV="${VM_IMAGE_REV}  ${INIFILE_fullpath}
       fi
       export VM_IMAGE_REV VM_IMAGE_REV_OLD
 
@@ -114,32 +114,67 @@ else
       sudo qemu-img convert -p ${IMGAGEPATH_libvirt}/${DOMAIN}.qcow2 -O qcow2 ${IMGAGEPATH}/${_NEW_IMAGENAME}.qcow2
       echo "${reset}"
 
-      # ubdate ini
+      #remove last sourceimage
+      _OLD_IMAGENAME=${IMAGENAME}"_"${VM_DOMAINNAME}"_r"${VM_IMAGE_REV_OLD}
+      CMD=$(rm -fv ${IMGAGEPATH}/${_OLD_IMAGENAME}.qcow2)
+      MSG="remove" && printlog "$CMD" "$MSG"
+
+      # update ini
       VM_IMAGENAME=${_NEW_IMAGENAME};
       sed -i "s/VM_IMAGENAME=.*$/`echo VM_IMAGENAME=\'${_NEW_IMAGENAME}\'`/g" ${INIFILE_fullpath} ;
 
       titleheader 'kanku destroy' ${red};
       kanku destroy;
-      titleheader 'fork kanku-source' ${grey};
 
-      # backup old KakuFile and replace it with a second template
-      _OLD_IMAGENAME=${IMAGENAME}"_"${VM_DOMAINNAME}"_r"${VM_IMAGE_REV_OLD}
-      _DOM_DIRNAME=${IMAGENAME}"_"${VM_DOMAINNAME}
+      # when noBAK not true
+      if [ -z $noBAK ]; then
+            titleheader 'fork kanku-source' ${grey};
 
-      CMD=$(mkdir -pv KankuFiles/${_DOM_DIRNAME})
-      MSG="mkdir" && printlog "$CMD" "$MSG"
+            # backup old KakuFile and replace it with a second template
+            _OLD_IMAGENAME=${IMAGENAME}"_"${VM_DOMAINNAME}"_r"${VM_IMAGE_REV_OLD}
+            _DOM_DIRNAME=${IMAGENAME}"_"${VM_DOMAINNAME}
 
-      CMD=$(mv -v KankuFile KankuFiles/${_DOM_DIRNAME}/"_"${TIMESTAMP}"_"KankuFile"_"${_OLD_IMAGENAME}.yml)
-      MSG="move" && printlog "$CMD" "$MSG"
+            # mkdir, in not exists
+            CMD=$(mkdir -pv KankuFiles/${_DOM_DIRNAME})
+            MSG="mkdir" && printlog "$CMD" "$MSG"
 
-      #render new netplan, .tt2 and KankuFile
-      . lib/render-template.sh
+            # remove last stored KankuFile of this revision if exists
+            if fileExist KankuFiles/${_DOM_DIRNAME}/*"_"KankuFile"_"${_OLD_IMAGENAME}.yml; then
+                  CMD=$(rm -v KankuFiles/${_DOM_DIRNAME}/*"_"KankuFile"_"${_OLD_IMAGENAME}.yml)
+                  MSG="remove" && printlog "$CMD" "$MSG"
+            fi
 
-      titleheader 'kanku up' ${green};
-      kanku up;
+            # move KankuFile timestaped to storage
+            CMD=$(mv -v KankuFile KankuFiles/${_DOM_DIRNAME}/"_"${TIMESTAMP}"_"KankuFile"_"${_OLD_IMAGENAME}.yml)
+            MSG="move" && printlog "$CMD" "$MSG"
 
-      # terminal reset
-      resize >/dev/null
-fi
+
+            if [[ $ini_VM_RELEASE -lt $ini_VM_IMAGE_REV ]]; then
+                  CMD=$(echo "release is lower than this revision")
+                  MSG="result"  && printlog_result "$CMD" "$MSG"
+            elif [[ $ini_VM_RELEASE -eq $ini_VM_IMAGE_REV ]]; then
+                  CMD=$(echo "release is equal this revision")
+                  MSG="result"  && printlog_result "$CMD" "$MSG"
+            elif [[ $ini_VM_RELEASE -gt $ini_VM_IMAGE_REV ]]; then
+                  CMD=$(echo "release greate this revision is impossible")
+                  MSG="result"  && printlog_result_err "$CMD" "$MSG"
+            fi
+
+            #render new netplan, .tt2 and KankuFile
+            . lib/render-template.sh
+
+            titleheader 'kanku up' ${green};
+            kanku up;
+
+            # terminal reset
+            resize > /dev/null
+
+            CMD=$(echo "_r${VM_IMAGE_REV}")
+            MSG="revisons-id" && printlog "$CMD" "$MSG"
+
+            CMD=$(cp -v KankuFile KankuFiles/${_DOM_DIRNAME}/"_"${TIMESTAMP}"_"KankuFile"_"${IMAGENAME}"_"${VM_DOMAINNAME}"_r"${VM_IMAGE_REV}.yml)
+            MSG="copy" && printlog "$CMD" "$MSG"
+      fi #Eif [ -z $noBAK ]
+fi #Eif [ ! -f "KankuFile" ]
 
 #FIN

@@ -4,42 +4,7 @@
 # prepare from the given .ini netplan an kanku-vars for there YAML-temlpates
 
 # netplan #
-netplan_ethernets=${VM_ETHERNETS}                                    # the net-devive for netplan
-
-netplan_addresses=${VM_IP4_STATIC}/${VM_IP4_NETMASK}                 #  (sequence of scalars) Example: addresses: [192.168.14.2/24, "2001:1::1/64"]
-
-netplan_gateway4=${VM_IP4_GATEWAY}                                   # (scalar) Example for IPv4: gateway4: 172.16.0.1
-
-netplan_gateway6=${VM_IP6_GATEWAY}                                   # (scalar) Example for IPv6: gateway6: "2001:4::1"
-
-netplan_nameservers_addresses=${VM_NAMESERVERS_ADDRESSES}            # (mapping) Example: 8.8.8.8, "FEDC::1"
-netplan_nameservers_search=${VM_NAMESERVERS_SEARCH}                  # (mapping) Examlpe: lab, home
-
-netplan_routes_to_network=${VM_ROUTES_TO_NETWORK}
-netplan_routes_to_via=${VM_ROUTES_TO_VIA}
-
-if [ $VM_NETWORK_TYPE == 'dhcp' ]; then
-      if [ ! -z $VM_IPV6_ON ]; then
-         netplan_dhcp6='yes'
-      else
-         netplan_dhcp6='false'
-      fi
-else
-   netplan_dhcp6='false'
-fi
-
-export netplan_ethernets netplan_addresses netplan_gateway4 netplan_gateway6 \
-       netplan_nameservers_addresses netplan_nameservers_search \
-       netplan_routes_to_network netplan_routes_to_via netplan_dhcp6
-
-if [ ! -z "$VM_ROUTES_TO_NETWORK" ]; then
-      parseTemplate 'lib/netplan-tmpls/00-netcfg_static_routes_tmpl.yml' '/tmp/00-netcfg-static_routes.yml'
-      export ROUTES="$(cat /tmp/00-netcfg-static_routes.yml)"
-else
-      export ROUTES=''
-fi
-# EOF netplan #
-
+. lib/render-netplan.sh
 
 # kanku #
 kanku_domain_name=${VM_KANKUPREFIX}"-"${VM_DOMAINNAME}  ##! namechanche is here
@@ -117,29 +82,60 @@ kanku_mnt_dir_9p=/tmp/kanku
 kanku_noauto_9p=1
 
 
+if [ ! -z ${VM_IMGAGESIZE} ]; then IMGAGESIZE=${VM_IMGAGESIZE}; else IMGAGESIZE=10; fi
+kanku_disk_size=${IMGAGESIZE}"G"
+
 export kanku_domain_name kanku_vm_image_file kanku_vm_template_file kanku_ip \
        kanku_host_interface kanku_network_bridge kanku_management_interface \
        kanku_management_network kanku_network_name kanku_vcpu kanku_memory \
        kanku_use_9p kanku_use_cache kanku_default_job kanku_login_user \
        kanku_login_pass kanku_user  kanku_images_dir kanku_cache_dir \
-       kanku_mnt_dir_9p kanku_noauto_9p
+       kanku_mnt_dir_9p kanku_noauto_9p kanku_disk_size
 
+# parse templates and generate final KankuFile
 
-# parse templates and generate final netplan.yaml & KankuFile
-case ${VM_NETWORK_TYPE} in
-    static) parseTemplate 'lib/netplan-tmpls/00-netcfg-static_tmpl.yml' 'fakeroot/etc/netplan/00-netcfg.yaml' ;;
-    dhcp|*) parseTemplate 'lib/netplan-tmpls/00-netcfg-dhcp_tmpl.yml' 'fakeroot/etc/netplan/00-netcfg.yaml' ;;
-esac
 
 # tempate choosing
 CMD=$(echo "VM_IMAGE_REV="${VM_IMAGE_REV}) && MSG="tempate choosing" && printlog "$CMD" "$MSG"
-if [ -z ${VM_IMAGE_REV} ] || [ ${VM_IMAGE_REV} -eq 0 ] ; then
-      parseTemplate 'lib/kankufile-tmpls/KankuFile.first.template.yml' 'KankuFile'
+#if [ -z ${VM_IMAGE_REV} ] || [[ ${VM_IMAGE_REV} -eq 0 ]] || [[ $isRELEASE -eq 0 ]] || [[ $isREVISION -eq 1 ]] ; then
+if [ -z ${VM_IMAGE_REV} ] || [[ ${VM_IMAGE_REV} -eq 0 ]] ; then
+      # when no REV
+      CMD=$(echo "${IMGAGESIZE}") && MSG="IMGAGESIZE" && printlog "$CMD" "$MSG"
+
+      if [[ ${IMGAGESIZE} -gt 10 ]]; then
+            # when imagesize is greater 10G #
+            # count new name
+            echo ${VM_IMAGENAME} | fgrep '_' > /dev/null
+            if [[ $? -eq 0 ]] ; then
+                  _SRC_IMAGENAME=$(echo ${VM_IMAGENAME} | cut  -d'_' -f1)
+            else
+                  _SRC_IMAGENAME=${VM_IMAGENAME}
+            fi
+            _NEW_IMAGENAME=${_SRC_IMAGENAME}"_"${VM_DOMAINNAME}
+
+            # copy src-image
+            CMD=$(cp -vP $HOME/.cache/kanku/u1804us.qcow2 $HOME/.cache/kanku/${_NEW_IMAGENAME}"_r0.qcow2" && wait)
+            MSG="copy" && printlog "$CMD" "$MSG"
+
+            # update ini
+            VM_IMAGENAME=${_NEW_IMAGENAME}
+            sed -i "s/VM_IMAGENAME=.*$/`echo VM_IMAGENAME=\'${_NEW_IMAGENAME}_r0\'`/g" configs/${INIFILE} ;
+
+            # update local kanku-source-imagefile
+            export kanku_vm_image_file=${_NEW_IMAGENAME}"_r0.qcow2"
+
+            parseTemplate 'lib/kankufile-tmpls/KankuFile.first.template_resize.yml' 'KankuFile'
+      else
+            parseTemplate 'lib/kankufile-tmpls/KankuFile.first.template.yml' 'KankuFile'
+      fi
+
 else
+
       parseTemplate 'lib/kankufile-tmpls/KankuFile.second.template.yml' 'KankuFile'
+
 fi
 
-# render routes, if present
+# remove routes, if present
 if [ ! -z "$VM_ROUTES_TO_NETWORK" ]; then
       CMD=$(rm -v /tmp/00-netcfg-static_routes.yml) && MSG="remove" && printlog "$CMD" "$MSG"
 fi

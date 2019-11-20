@@ -76,9 +76,29 @@ else
       #backup ini
       setup_file ${INIFILEabs_defaults} ${INIFILEabs}
 
-      # resets controllvar
-      VM_IMAGE_REV=
+      # scan dir and move KankuFiles to BAks
+      ii=0
+      for KANKUFILE in KankuFiles/$_REVISION_NAME/*.yml; do
+            logStamp
+            printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%s${reset}\n" "$ii" "$_REVISION_NAME"  "$KANKUFILE"
 
+            if ! dirExist BAKs/$_REVISION_NAME; then
+                  CMD=$(mkdir -pv BAKs/$_REVISION_NAME) && MSG="mkdir" && printlog "$CMD" "$MSG"
+            fi
+
+            thisKANKUFILE=$(basename $KANKUFILE)
+            CMD=$(mv -v ${KANKUFILE} BAKs/$_REVISION_NAME/$thisKANKUFILE) && MSG="move" && printlog "$CMD" "$MSG"
+
+            KANKUFILES+=${KANKUFILE}" "
+            logStamp
+            (( ii+=1 ))
+      done
+      KANKUFILES_NUM=$ii
+      printf "${grey}${LOGSTAMP} ${dimblue}%-3s ${dimcyan}%-30s : ${dimwhite}%s${reset}\n" "#" "KANKUFILES_NUM"  "$KANKUFILES_NUM"
+
+      # resets controllvar
+      VM_RELEASE=
+      VM_IMAGE_REV=0
 
       # insert new ini
       . ${INIFILEabs}
@@ -86,6 +106,8 @@ else
       #render new netplan, .tt2 and KankuFile
       . lib/render-template.sh
 
+       CMD=$(cp -v KankuFile KankuFiles/$_REVISION_NAME/"_"${TIMESTAMP}"_"KankuFile"_"${_REVISION_NAME}"_r0".yml)
+       MSG="copy" && printlog "$CMD" "$MSG"
 fi; #Eif [ ! -f "KankuFile" ]
 
 # ############################### kanku up
@@ -93,6 +115,8 @@ titleheader 'kanku up' ${green};
 kanku up;
 
 # terminal reset
-resize >/dev/null
+resize > /dev/null
 
+exit 0
+#FIN
 

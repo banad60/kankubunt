@@ -16,7 +16,7 @@ if [ ! -f "KankuFile" ]; then
    echo ${dimred}${MSG}${reset}
    exit 1
 else
-
+      VM_RELEASE=
       export TIMESTAMP
       export VM_KANKUPREFIX="kanku"
 
@@ -67,7 +67,6 @@ else
                fi
             fi
 
-
             # shutdown released-image, if running (interactiv)
             undefineVM_interactive ${VM_DOMAINNAME} ${LIBVIRTHOST}
 
@@ -89,7 +88,6 @@ else
 
             IMGAGEPATH_libvirt=/var/lib/libvirt/images
             CMD=$(echo "${IMGAGEPATH_libvirt}") && MSG="IMGAGEPATH_libvirt" && printlog "$CMD" "$MSG"
-
 
             if [ "${VM_NETWORK_TYPE}" == 'static' ]; then
                if ! isVMDOMAINrunning ${DOMAIN} ${LIBVIRTHOST}; then
@@ -148,6 +146,9 @@ else
             _RELEASED_NAME=$(cat KankuFile|fgrep vm_image_file|sed 's/^[ \t]*//'|cut -d' ' -f2 | cut -d'.' -f1 | cut -d'_' -f2)
             CMD=$(echo ${_RELEASED_NAME}) && MSG="_RELEASED_NAME" && printlog "$CMD" "$MSG"
 
+            VM_RELEASE=$REV
+            CMD=$(echo ${VM_RELEASE}) && MSG="VM_RELEASE" && printlog "$CMD" "$MSG"
+
             # prepare image
             operations=$(virt-sysprep --list-operations | egrep -v 'fs-uuids|lvm-uuids|ssh-userdir|ssh-hostkeys' | awk '{ printf "%s,", $1}' | sed 's/,$//')
             CMD=$(echo $operations) && MSG="virt-sysprep" && printlog "$CMD" "$MSG"
@@ -204,27 +205,30 @@ else
             startupVMDOMAIN ${_RELEASED_NAME} ${LIBVIRTHOST};
 
             ##### delete old shith
-
             # remove all kanku-revisions-images
             if fileExist ${IMGAGEPATH}/${_REVISION_NAME}"_r"${REV}".qcow2"; then
                   #echo -n " *  remove: "
                   CMD=$(rm -vf ${IMGAGEPATH}/${_REVISION_NAME}_* | sed "s/'/\"/g" | cut -d ' ' -f1 | sed 's/"//g' | sed ':a; N; s/\n/, /; ta')
                   MSG="remove" && printlog "$CMD" "$MSG"
+                  sed -i "s/VM_IMAGENAME=.*$/`echo VM_IMAGENAME=\'${_NEW_IMAGENAME}\'`/g" ${INIFILE_fullpath} ;
+
             else
                   CMD=$(echo "no ${_REVISION_NAME}_* images - nothing to do!")
                   MSG="remove" && printlog "$CMD" "$MSG"
             fi
 
-            #reset inifile to default
-#            CMD=$(cp -v configs/defaults/${INIFILE} configs/${INIFILE}) && MSG="copy" && printlog "$CMD" "$MSG"
-
             # backup old KakuFile and replace it with a second template
             _OLD_IMAGENAME=${IMAGENAME}"_"${VM_DOMAINNAME}"_1.00-"${VM_IMAGE_REV}
             _DOM_DIRNAME=${IMAGENAME}"_"${VM_DOMAINNAME}
-
             CMD=$(mkdir -pv KankuFiles/${_DOM_DIRNAME}) && MSG="mkdir" && printlog "$CMD" "$MSG"
 
-            CMD=$(mv -fv KankuFile KankuFiles/${_DOM_DIRNAME}/"_"${TIMESTAMP}"_"KankuFile"_"${_OLD_IMAGENAME}.yml) && MSG="move" && printlog "$CMD" "$MSG"
+            # remove last stored KankuFile of this revision if exists
+            if fileExist KankuFiles/${_DOM_DIRNAME}/*"_KankuFile_"${_DOM_DIRNAME}"_r"${VM_IMAGE_REV}.yml; then
+                  CMD=$(rm -v KankuFiles/${_DOM_DIRNAME}/*"_KankuFile_"${_DOM_DIRNAME}"_r"${VM_IMAGE_REV}.yml)
+                  MSG="move" && printlog "$CMD" "$MSG"
+            fi
+            CMD=$(mv -fv KankuFile KankuFiles/${_DOM_DIRNAME}/"_"${TIMESTAMP}"_KankuFile_"${_DOM_DIRNAME}"_r"${VM_IMAGE_REV}.yml)
+            MSG="move" && printlog "$CMD" "$MSG"
 
             logStamp && printf "${dimgreen}%s\n" "${LOGSTAMP}"
 
@@ -243,14 +247,42 @@ else
             echo ""
             echo "                     or reconfigure this setup : ${dimyellow}./reconf-kanku-vm <option>"
             echo  ${reset}
-
-
       else
             # if no domain exists
             CMD=$(echo "domainname ${DOMAIN} did not exist - release impossible") && MSG="ERROR"  && printlog_result_err "$CMD" "$MSG"
       fi #Eif existVMDOMAIN {${DOMAIN}};
 
+
+      # write to config if released
+      if [[ $VM_IMAGE_REV -gt 0 ]]; then
+         cat configs/${INIFILE} | fgrep --no-messages 'VM_RELEASE=' > /dev/null
+         hasREL=$?
+         if [[ $hasREL -eq 0 ]]; then
+               CMD=$(echo "${green}${hasREL}") && MSG="hasREL"  && printlog "$CMD" "$MSG"
+               sed -i "s/VM_RELEASE=.*$/`echo VM_RELEASE=${VM_RELEASE}`/g" configs/${INIFILE} ;
+         else
+               CMD=$(echo "${dimred}${hasREL}") && MSG="hasREL"  && printlog "$CMD" "$MSG"
+               addFIRSTLINE "VM_RELEASE="${VM_IMAGE_REV}  configs/${INIFILE}
+
+               #clean up .ini
+               cat configs/${INIFILE} | sed '/./!d' | sed 's/^# - /\n# - /g' > /tmp/config.tmp
+               rm configs/${INIFILE}
+               mv /tmp/config.tmp configs/${INIFILE}
+         fi
+
+         if [[ $VM_RELEASE -lt $VM_IMAGE_REV ]]; then
+               CMD=$(echo "release ${_RC_IMG_VER} is lower than revision r${VM_IMAGE_REV}")
+               MSG="result"  && printlog_result "$CMD" "$MSG"
+         elif [[ $VM_RELEASE -eq $VM_IMAGE_REV ]]; then
+               CMD=$(echo "release ${_RC_IMG_VER} is equal revision r${VM_IMAGE_REV}")
+               MSG="result"  && printlog_result "$CMD" "$MSG"
+         elif [[ $VM_RELEASE -gt $VM_IMAGE_REV ]]; then
+               CMD=$(echo "release ${_RC_IMG_VER} greater revision r${VM_IMAGE_REV} is impossible")
+               MSG="result"  && printlog_result_err "$CMD" "$MSG"
+         fi
+      fi #Elib/fork-local-kanku-source.sh
 fi; #Eif [ ! -f "KankuFile" ]
 
 exit 0
 
+#FIN

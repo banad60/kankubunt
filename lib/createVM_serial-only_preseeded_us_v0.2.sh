@@ -25,7 +25,8 @@ fi
 IMAGENAME=$(cat configs/defaults/${INIFILE}|fgrep VM_IMAGENAME |sed 's/VM_IMAGENAME=//g'|cut -d "'" -f2)
 DOMAIN=$(cat configs/defaults/${INIFILE}|fgrep VM_DOMAINNAME |sed 's/VM_DOMAINNAME=//g'|cut -d "'" -f2)
 IMGAGEPATH=${HOME}/.cache/kanku
-if [ ! -z ${VM_IMGAGESIZE} ]; then IMGAGESIZE=${VM_IMGAGESIZE}; else IMGAGESIZE=10; fi
+
+IMGAGESIZE=5
 
 # delete old source
 if existVMDOMAIN ${IMAGENAME} ${LIBVIRTHOST}; then
