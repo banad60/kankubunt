@@ -1,0 +1,28 @@
+         - systemctl disable ufw.service && systemctl stop ufw.service && systemctl mask ufw.service
+  -
+    use_module: Kanku::Handler::Reboot
+    options:
+      wait_for_console: 1
+      wait_for_network: 1
+      timeout:          300
+  -
+    use_module: Kanku::Handler::ExecuteCommandViaSSH
+    options:
+      commands:
+        - systemctl enable mount-kanku-tmp.service && systemctl start mount-kanku-tmp.service
+        - systemctl status mount-kanku-tmp.service
+        - wait
+        - cp -Rp /tmp/kanku/fakeroot/opt/bbpro /opt
+        - chown -R root:root /opt/bbpro
+        - ln -sf /opt/bbpro /usr/local/bbpro
+        - cp -Rp /tmp/kanku/fakeroot/etc/fail2ban /etc
+        - apt-get -y install ntp fail2ban
+  -
+    use_module: Kanku::Handler::ExecuteCommandViaConsole
+    options:
+      commands:
+        - systemctl stop fail2ban.service
+        - /opt/bbpro/setup.sh
+        - wait
+        - cp -Rp /tmp/kanku/fakeroot/opt/bbpro_extents/var/modules/firewall/firewall-active.sh /opt/bbpro/var/modules/firewall
+        - fw start

@@ -290,7 +290,7 @@ else
    setup_file 'fakeroot'${TEMPLATE_DIR}'/kanku_u1804usVM.tt2' ${TEMPLATE_DIR}/kanku_u1804usVM.tt2
 
 
-   # compute 
+   # compute
    if [[ $isRELEASE -eq 0 ]] ; then
          # if release exists
          # test for revision

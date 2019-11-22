@@ -33,7 +33,7 @@ case ${VM_NETWORK_TYPE} in
       ;;
 esac
 
-
+# select network-interface
 CMD=$(echo "VM_NETWORK_INTERFACE="${VM_NETWORK_INTERFACE}) && MSG="network choosing" && printlog "$CMD" "$MSG"
 case ${VM_NETWORK_INTERFACE} in
       bridge)
@@ -64,6 +64,37 @@ case ${VM_NETWORK_INTERFACE} in
          esac
       ;;
 esac
+
+# integrate fw
+if [ -z ${VM_IMAGE_REV} ] || [[ ${VM_IMAGE_REV} -eq 0 ]] ; then
+   if dirExist 'fakeroot/opt/bbpro'; then
+         VM_FW_install=0
+         if [ ! -z $VM_FW ]; then
+               sed -i "s/VM_FW=.*$/`echo VM_FW=0`/g" ${INIFILE_fullpath} ;
+         else
+               echo "" >> ${INIFILE_fullpath};
+               echo '# - firewall-integration' >> ${INIFILE_fullpath};
+               echo "VM_FW=0" >> ${INIFILE_fullpath};
+         fi
+   else
+         VM_FW_install=1
+         if [ ! -z $VM_FW ]; then
+               sed -i "s/VM_FW=.*$/`echo VM_FW=1`/g" ${INIFILE_fullpath} ;
+         else
+               echo "" >> ${INIFILE_fullpath};
+               echo '# - firewall-integration' >> ${INIFILE_fullpath};
+               echo "VM_FW=1" >> ${INIFILE_fullpath};
+         fi
+   fi
+   CMD=$(echo "VM_FW="${VM_FW}) && MSG="integrate firewall" && printlog "$CMD" "$MSG"
+   if [[ $VM_FW_install -eq 0 ]]; then
+         parseTemplate 'lib/kankufile-tmpls/KankuFile.firewall_template.yml' '/tmp/KankuFile.firewall_template.yml'
+         export FIREWALL_INSTALLATION="$(cat /tmp/KankuFile.firewall_template.yml)"
+   else
+         export FIREWALL_INSTALLATION=''
+   fi
+fi #Eif [ -z ${VM_IMAGE_REV} ] || [[ ${VM_IMAGE_REV} -eq 0 ]]
+
 
 kanku_vcpu=${VM_VCPU}
 kanku_memory=${VM_MEMORY}
@@ -141,4 +172,3 @@ if [ ! -z "$VM_ROUTES_TO_NETWORK" ]; then
 fi
 
 #FIN
-

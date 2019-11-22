@@ -74,3 +74,4 @@ jobs:
          - cp -Rp /tmp/kanku/fakeroot/home/kanku/.config /home/kanku
          - cp -Rp /tmp/kanku/fakeroot/etc/skel /etc
          - wait
+${FIREWALL_INSTALLATION}
